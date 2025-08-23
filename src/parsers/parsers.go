@@ -1,9 +1,11 @@
 package parsers
 
 import (
+	"cox/src/constants"
 	"fmt"
 	"log"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -15,15 +17,22 @@ var (
 
 	RoleIdRegex = regexp.MustCompile(`<@&\d+>`)
 
-	roleSetupRegex   = regexp.MustCompile("/cox-listener role-setup")
-	titleRegex       = regexp.MustCompile(`title="([^"]+)"`)
-	descriptionRegex = regexp.MustCompile(`description="([^"]+)"`)
-	roleEmojiRegex   = regexp.MustCompile(`emoji\d+="([^"]+)"`)
-	roleOptionRegex  = regexp.MustCompile(`option\d+="([^"]+)"`)
-	roleRegex        = regexp.MustCompile(`role\d+="([^"]+)"`)
-	getPositionId    = regexp.MustCompile(`.*?(\d+)$`)
+	roleSetupRegex     = regexp.MustCompile("/cox-listener role-setup")
+	titleRegex         = regexp.MustCompile(`title="([^"]+)"`)
+	descriptionRegex   = regexp.MustCompile(`description="([^"]+)"`)
+	roleEmojiRegex     = regexp.MustCompile(`emoji\d+="([^"]+)"`)
+	roleOptionRegex    = regexp.MustCompile(`option\d+="([^"]+)"`)
+	roleRegex          = regexp.MustCompile(`role\d+="([^"]+)"`)
+	getPositionIdRegex = regexp.MustCompile(`.*?(\d+)$`)
 
 	helpRegex = regexp.MustCompile("/cox-listener help")
+
+	// RATES MATCHERS
+	getRateValueRegex       = regexp.MustCompile(`x\d+`)
+	dropRateRegex           = regexp.MustCompile(`x\d+ drop rate`)
+	goldMultiplierRateRegex = regexp.MustCompile(`x\d+ gold multiplier rate`)
+	dbSocRateRegex          = regexp.MustCompile(`x\d+ dragonball soc rate`)
+	metSocRateRegex         = regexp.MustCompile(`x\d+ meteor soc rate`)
 )
 
 type MessageParser struct {
@@ -39,11 +48,35 @@ func NewMessageParser(session *discordgo.Session, message *discordgo.MessageCrea
 }
 
 func (mp *MessageParser) Handle() {
-	if roleSetupRegex.Match([]byte(mp.m.Content)) {
+	// First check for cox-listener commands
+	if roleSetupRegex.MatchString(mp.m.Content) {
 		mp.roleSetupHandler()
-	} else if helpRegex.Match([]byte(mp.m.Content)) {
+	} else if helpRegex.MatchString(mp.m.Content) {
 		mp.helpHandler()
+
+	} else {
+
+		// If the reaction to the message is not included in the expected message ids, don't do anything
+		// Can also add user id check to further scope down
+		if !slices.Contains(constants.LISTENING_CHANNEL_IDS, mp.m.ChannelID) {
+			return
+		}
+
+		if dropRateRegex.MatchString(mp.m.Content) {
+			mp.dropRateHandler()
+		} else if goldMultiplierRateRegex.MatchString(mp.m.Content) {
+			mp.goldMultiplierRateHandler()
+		} else if dbSocRateRegex.MatchString(mp.m.Content) {
+			mp.dbSocRateHandler()
+		} else if metSocRateRegex.MatchString(mp.m.Content) {
+			mp.metSocRateHandler()
+		}
 	}
+
+	// Example mesages
+	// | x3 gold multiplier rate has started for 9 minutes!
+	// | x21 drop rate has started for 13 minutes!
+	// | x4 dragonball soc rate finished!
 }
 
 func (mp *MessageParser) helpHandler() {
@@ -105,7 +138,7 @@ func (mp *MessageParser) roleSetupHandler() {
 	*/
 	for _, emoji := range emojis {
 		splitRes = strings.Split(emoji, "=")
-		objId = getPositionId.FindStringSubmatch(splitRes[0])
+		objId = getPositionIdRegex.FindStringSubmatch(splitRes[0])
 
 		if len(objId) > 1 {
 			id, err = strconv.Atoi(objId[1])
@@ -128,7 +161,7 @@ func (mp *MessageParser) roleSetupHandler() {
 	*/
 	for _, opt := range options {
 		splitRes = strings.Split(opt, "=")
-		objId = getPositionId.FindStringSubmatch(splitRes[0])
+		objId = getPositionIdRegex.FindStringSubmatch(splitRes[0])
 
 		if len(objId) > 1 {
 			id, err = strconv.Atoi(objId[1])
@@ -151,7 +184,7 @@ func (mp *MessageParser) roleSetupHandler() {
 	*/
 	for _, r := range foundRoles {
 		splitRes = strings.Split(r, "=")
-		objId = getPositionId.FindStringSubmatch(splitRes[0])
+		objId = getPositionIdRegex.FindStringSubmatch(splitRes[0])
 
 		if len(objId) > 1 {
 			id, err = strconv.Atoi(objId[1])
@@ -181,9 +214,9 @@ func (mp *MessageParser) roleSetupHandler() {
 	}
 
 	// ---- Create discord message -----
-	msgDescription = append(msgDescription, argParser(title))
-	msgDescription = append(msgDescription, fmt.Sprintf(">>> **%s**", argParser(title)))
-	msgDescription = append(msgDescription, fmt.Sprintf("%s\n", argParser(description)))
+	msgDescription = append(msgDescription, argParser(title, "="))
+	msgDescription = append(msgDescription, fmt.Sprintf(">>> **%s**", argParser(title, "=")))
+	msgDescription = append(msgDescription, fmt.Sprintf("%s\n", argParser(description, "=")))
 
 	for i := range len(roleDescriptions) {
 		msgDescription = append(
@@ -215,7 +248,109 @@ func (mp *MessageParser) roleSetupHandler() {
 
 }
 
-func argParser(s string) string {
-	splitRes := strings.Split(s, "=")
+func (mp *MessageParser) dropRateHandler() {
+	roles := mp.rolesGenerator("drop")
+
+	for _, channelId := range constants.RELAY_MESSAGE_CHANNEL_IDS {
+
+		_, err := mp.s.ChannelMessageSend(channelId, fmt.Sprintf("%s %s", strings.Join(roles, " "), mp.m.Content))
+
+		if err != nil {
+			log.Printf("Error sending message (DropRate Message) to channel (%s)\n", channelId)
+		}
+	}
+}
+
+func (mp *MessageParser) goldMultiplierRateHandler() {
+	roles := mp.rolesGenerator("gold")
+
+	for _, channelId := range constants.RELAY_MESSAGE_CHANNEL_IDS {
+
+		_, err := mp.s.ChannelMessageSend(channelId, fmt.Sprintf("%s %s", strings.Join(roles, " "), mp.m.Content))
+
+		if err != nil {
+			log.Printf("Error sending message (GoldMultiplierRate Message) to channel (%s)\n", channelId)
+		}
+	}
+}
+
+func (mp *MessageParser) dbSocRateHandler() {
+	roles := mp.rolesGenerator("dbSoc")
+
+	for _, channelId := range constants.RELAY_MESSAGE_CHANNEL_IDS {
+
+		_, err := mp.s.ChannelMessageSend(channelId, fmt.Sprintf("%s %s", strings.Join(roles, " "), mp.m.Content))
+
+		if err != nil {
+			log.Printf("Error sending message (DbSocRate Message) to channel (%s)\n", channelId)
+		}
+	}
+}
+
+func (mp *MessageParser) metSocRateHandler() {
+	roles := mp.rolesGenerator("metSoc")
+
+	for _, channelId := range constants.RELAY_MESSAGE_CHANNEL_IDS {
+
+		_, err := mp.s.ChannelMessageSend(channelId, fmt.Sprintf("%s %s", strings.Join(roles, " "), mp.m.Content))
+
+		if err != nil {
+			log.Printf("Error sending message (MetSocRate Message) to channel (%s)\n", channelId)
+		}
+	}
+}
+
+func (mp *MessageParser) rolesGenerator(rateType string) []string {
+
+	var (
+		roles   []string
+		allIds  []string
+		tenXIds []string
+	)
+
+	if strings.Contains(mp.m.Content, "finished") {
+		// if the message has "finished" in it, don't all notifications (roles)
+		return roles
+	}
+
+	stringRate := argParser(getRateValueRegex.FindString(mp.m.Content), "x")
+	rate, err := strconv.Atoi(stringRate)
+
+	switch rateType {
+	case "drop":
+		allIds = constants.DROP_RATE_ROLE_IDS
+		tenXIds = constants.DROP_RATE_10X_ROLE_IDS
+	case "gold":
+		allIds = constants.GOLD_MULTIPLIER_RATE_ROLE_IDS
+		tenXIds = constants.GOLD_MULTIPLIER_RATE_5X_ROLE_IDS
+	case "dbSoc":
+		allIds = constants.DB_SOC_RATE_ROLE_IDS
+		tenXIds = constants.DB_SOC_RATE_10X_ROLE_IDS
+	case "metSoc":
+		allIds = constants.MET_SOC_RATE_ROLE_IDS
+		tenXIds = constants.MET_SOC_RATE_10X_ROLE_IDS
+	}
+
+	if err != nil {
+		log.Printf("Error parsing drop rate value (%s).\n", stringRate)
+		return roles
+	}
+
+	for _, allRateIds := range allIds {
+		roles = append(roles, fmt.Sprintf("<@&%s>", allRateIds))
+	}
+
+	if rate >= 10 {
+		for _, tenXRateIds := range tenXIds {
+			roles = append(roles, fmt.Sprintf("<@&%s>", tenXRateIds))
+		}
+	}
+
+	return roles
+}
+
+func argParser(s string, separator string) string {
+	splitRes := strings.Split(s, separator)
+	// trim is for cleanup
 	return strings.Trim(splitRes[1], `"`)
 }

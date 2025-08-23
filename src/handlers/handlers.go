@@ -1,9 +1,10 @@
 package handlers
 
 import (
-	"cox/src/parsers"
 	"slices"
-	"strings"
+
+	"cox/src/constants"
+	"cox/src/parsers"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -18,18 +19,8 @@ func MessageCreateHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	// fmt.Printf("[%s] %s: %s...\n", m.ChannelID, m.Author.Username, m.Content)
 
-	// First check if the command is a cox-listener, if so process it
-	if strings.HasPrefix(m.Content, parsers.CoxCommand) {
-		p = parsers.NewMessageParser(s, m)
-		p.Handle()
-		return
-	}
-
-	// Alternatively, only process messages from the specified channels
-	if !slices.Contains(LISTENING_CHANNEL_IDS, m.ChannelID) {
-		// If the reaction to the message is not included in the expected message ids, don't do anything
-		return
-	}
+	p = parsers.NewMessageParser(s, m)
+	p.Handle()
 }
 
 func MessageReactionAddHandler(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
@@ -38,7 +29,7 @@ func MessageReactionAddHandler(s *discordgo.Session, r *discordgo.MessageReactio
 		return
 	}
 
-	if !slices.Contains(ASSIGN_ROLE_MESSAGE_IDS, r.MessageID) {
+	if !slices.Contains(constants.ASSIGN_ROLE_MESSAGE_IDS, r.MessageID) {
 		// If the reaction to the message is not included in the expected message ids, don't do anything
 		return
 	}
@@ -61,7 +52,7 @@ func MessageReactionRemoveHandler(s *discordgo.Session, r *discordgo.MessageReac
 		return
 	}
 
-	if !slices.Contains(ASSIGN_ROLE_MESSAGE_IDS, r.MessageID) {
+	if !slices.Contains(constants.ASSIGN_ROLE_MESSAGE_IDS, r.MessageID) {
 		// If the reaction to the message is not included in the expected message ids, don't do anything
 		return
 	}

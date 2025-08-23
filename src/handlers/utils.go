@@ -1,9 +1,10 @@
 package handlers
 
 import (
-	"cox/src/parsers"
 	"log"
 	"strings"
+
+	"cox/src/parsers"
 
 	"github.com/bwmarrin/discordgo"
 )
