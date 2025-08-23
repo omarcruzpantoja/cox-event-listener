@@ -27,13 +27,16 @@ func main() {
 	// Add a handler for new messages
 	dg.AddHandler(handlers.MessageCreateHandler)
 	dg.AddHandler(handlers.MessageReactionAddHandler)
+	dg.AddHandler(handlers.MessageReactionRemoveHandler)
 
 	// Open a websocket connection to Discord
 	err = dg.Open()
+
 	if err != nil {
-		fmt.Println("error opening connection,", err)
+		fmt.Println("Error establishing connection with discord.", err)
 		return
 	}
+
 	defer dg.Close()
 
 	fmt.Println("Bot is now running. Press CTRL+C to exit.")
@@ -42,5 +45,4 @@ func main() {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-stop
-
 }

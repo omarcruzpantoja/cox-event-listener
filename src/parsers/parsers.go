@@ -13,11 +13,14 @@ import (
 var (
 	CoxCommand = "/cox-listener"
 
+	RoleIdRegex = regexp.MustCompile(`<@&\d+>`)
+
 	roleSetupRegex   = regexp.MustCompile("/cox-listener role-setup")
 	titleRegex       = regexp.MustCompile(`title="([^"]+)"`)
 	descriptionRegex = regexp.MustCompile(`description="([^"]+)"`)
 	roleEmojiRegex   = regexp.MustCompile(`emoji\d+="([^"]+)"`)
 	roleOptionRegex  = regexp.MustCompile(`option\d+="([^"]+)"`)
+	roleRegex        = regexp.MustCompile(`role\d+="([^"]+)"`)
 	getPositionId    = regexp.MustCompile(`.*?(\d+)$`)
 
 	helpRegex = regexp.MustCompile("/cox-listener help")
@@ -86,8 +89,10 @@ func (mp *MessageParser) roleSetupHandler() {
 	description := descriptionRegex.FindString(mp.m.Content)
 	emojis := roleEmojiRegex.FindAllString(mp.m.Content, -1)
 	options := roleOptionRegex.FindAllString(mp.m.Content, -1)
+	foundRoles := roleRegex.FindAllString(mp.m.Content, -1)
 
 	reactions := make([]string, len(emojis))
+	roleDescriptions := make([]string, len(options))
 	roles := make([]string, len(options))
 
 	/*
@@ -114,7 +119,7 @@ func (mp *MessageParser) roleSetupHandler() {
 	}
 
 	/*
-		---- Parse options -----
+		---- Role description options -----
 		Example:
 		option1="All money rates events"
 		option2="X10+ money rates"
@@ -125,7 +130,6 @@ func (mp *MessageParser) roleSetupHandler() {
 		splitRes = strings.Split(opt, "=")
 		objId = getPositionId.FindStringSubmatch(splitRes[0])
 
-		// strconv.Atoi is shorthand for base-10 string to int
 		if len(objId) > 1 {
 			id, err = strconv.Atoi(objId[1])
 			if err != nil {
@@ -134,7 +138,46 @@ func (mp *MessageParser) roleSetupHandler() {
 			}
 		}
 
+		roleDescriptions[id-1] = strings.Trim(splitRes[1], `"`)
+	}
+
+	/*
+		---- Role options -----
+		Example:
+		role1="MoneyRate All"
+		role2="MoneyRate 5x+"
+		role3="DropRate All"
+		role4="MoneyRate 10x+"
+	*/
+	for _, r := range foundRoles {
+		splitRes = strings.Split(r, "=")
+		objId = getPositionId.FindStringSubmatch(splitRes[0])
+
+		if len(objId) > 1 {
+			id, err = strconv.Atoi(objId[1])
+			if err != nil {
+				log.Printf("Unable to find role id (roleSetupHandler): %s\n", err)
+				return
+			}
+		}
+
 		roles[id-1] = strings.Trim(splitRes[1], `"`)
+	}
+
+	// ---- Get all roles ----
+	guild, err := mp.s.State.Guild(mp.m.GuildID)
+
+	if err != nil {
+		log.Printf("Unable to get guild data (roleSetupHandler)")
+		return
+	}
+
+	for _, role := range guild.Roles {
+		for index := range len(roles) {
+			if roles[index] == role.Name {
+				roles[index] = fmt.Sprintf("<@&%s>", role.ID)
+			}
+		}
 	}
 
 	// ---- Create discord message -----
@@ -142,8 +185,11 @@ func (mp *MessageParser) roleSetupHandler() {
 	msgDescription = append(msgDescription, fmt.Sprintf(">>> **%s**", argParser(title)))
 	msgDescription = append(msgDescription, fmt.Sprintf("%s\n", argParser(description)))
 
-	for i := range len(roles) {
-		msgDescription = append(msgDescription, fmt.Sprintf(("%s: **%s**"), reactions[i], roles[i]))
+	for i := range len(roleDescriptions) {
+		msgDescription = append(
+			msgDescription,
+			fmt.Sprintf(("%s: **%s** (%s)"), reactions[i], roleDescriptions[i], roles[i]),
+		)
 	}
 
 	// Send a message including message description and role descriptions (and its emoji)

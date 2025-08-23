@@ -10,3 +10,4 @@ func GetEnv(key string, raise bool) string {
 	}
 	return value
 }
+
