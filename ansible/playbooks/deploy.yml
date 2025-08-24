@@ -3,42 +3,71 @@
   gather_facts: false
   become: true
 
+  vars:
+    svc_name: discord_bot
+    svc_dir: /opt/discord-bot
+
   tasks:
-    - name: Ensure /opt/discord-bot path exists
+    # ----- COPY BINARY AND ENV FILE -----
+    - name: Ensure {{ svc_dir }} exists
       ansible.builtin.file:
-        path: /opt/discord-bot
+        path: "{{ svc_dir }}"
         state: directory
         mode: "0755"
 
-    - name: Copy binary file to lxc container
-      copy:
-        src: "/tmp/cox-bin/"
-        dest: "opt/discord-bot/"
-      check_mode: true
-      diff: true
-    # - name: Pull latest mist-backend image
-    #   community.docker.docker_image:
-    #     name: registry.mist-project.app/mist-backend:latest
-    #     source: pull
+    - name: Copy binary file (and make it executable)
+      ansible.builtin.copy:
+        src: "/tmp/cox-bin/cox-event-listener"
+        dest: "{{ svc_dir }}/cox-event-listener"
+        mode: "0755"
 
-    # - name: Run Docker container
-    #   community.docker.docker_container:
-    #     name: mist_backend
-    #     image: registry.mist-project.app/mist-backend:latest
-    #     state: started
-    #     ports:
-    #       - "4000:4000"
-    #     restart_policy: always # container restarts on failure
-    #     env:
-    #       LOG_LEVEL: "{{ LOG_LEVEL }}"
-    #       REDIS_HOSTNAME: "{{ REDIS_HOSTNAME }}"
-    #       REDIS_PORT: "{{ REDIS_PORT }}"
-    #       REDIS_USERNAME: "{{ REDIS_USERNAME }}"
-    #       REDIS_PASSWORD: "{{ REDIS_PASSWORD }}"
-    #       REDIS_DB: "{{ REDIS_DB }}"
-    #       REDIS_NOTIFICATION_CHANNEL: "{{ REDIS_NOTIFICATION_CHANNEL }}"
-    #       DATABASE_URL: "{{ DATABASE_URL }}"
-    #       MIST_API_JWT_SECRET_KEY: "{{ MIST_API_JWT_SECRET_KEY }}"
-    #       MIST_API_JWT_AUDIENCE: "{{ MIST_API_JWT_AUDIENCE }}"
-    #       MIST_API_JWT_ISSUER: "{{ MIST_API_JWT_ISSUER }}"
-    #       APP_PORT: "{{ APP_PORT }}"
+    - name: Copy .env
+      ansible.builtin.copy:
+        src: "/tmp/cox-bin/.env"
+        dest: "{{ svc_dir }}/.env"
+        mode: "0640"
+
+    # ----- INITIALIZE AND START SERVICE -----
+    - name: Add discord bot service file if it does not exist
+      ansible.builtin.stat:
+        path: "/etc/systemd/system/{{ svc_name }}.service"
+      register: unit_stat
+
+    - name: Create unit file if missing
+      ansible.builtin.copy:
+        dest: "/etc/systemd/system/{{ svc_name }}.service"
+        mode: "0644"
+        content: |
+          [Unit]
+          Description={{ svc_name }} service
+          After=network.target
+
+          [Service]
+          WorkingDirectory={{ svc_dir }}
+          ExecStart={{ svc_dir }}/cox-event-listener
+          EnvironmentFile={{ svc_dir }}/.env
+
+          Restart=always
+          RestartSec=60
+
+          [Install]
+          WantedBy=multi-user.target
+      when: not unit_stat.stat.exists
+      register: unit_drop
+
+    - name: Reload systemd if unit was created
+      ansible.builtin.systemd:
+        daemon_reload: true
+      when: unit_drop is defined and unit_drop.changed
+
+    - name: Enable and start service
+      ansible.builtin.systemd:
+        name: "{{ svc_name }}.service"
+        enabled: true
+        state: started
+
+    # Always restart at the end with the new binary/env
+    - name: Restart service with latest binary/env
+      ansible.builtin.systemd:
+        name: "{{ svc_name }}.service"
+        state: restarted

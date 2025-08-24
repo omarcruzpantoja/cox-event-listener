@@ -29,8 +29,8 @@ echo -e "$TENANT_PRIVATE_SSH_KEY" >> "$KEY_FILE"
 
 # Create tmporary environment variables file
 touch .tmpenvs
-echo "export TENANT_USERNAME=$TENANT_USERNAME" >> ".tmpenvs"
+echo "TENANT_USERNAME=$TENANT_USERNAME" >> ".tmpenvs"
 
-echo "export DISCORD_APPLICATION_ID=\"$DISCORD_APPLICATION_ID\"" >> ".tmpenvs"
-echo "export DISCORD_PUBLIC_KEY=\"$DISCORD_PUBLIC_KEY\"" >> ".tmpenvs"
-echo "export DISCORD_BOT_TOKEN=\"$DISCORD_BOT_TOKEN\"" >> ".tmpenvs"
+echo "DISCORD_APPLICATION_ID=\"$DISCORD_APPLICATION_ID\"" >> ".tmpenvs"
+echo "DISCORD_PUBLIC_KEY=\"$DISCORD_PUBLIC_KEY\"" >> ".tmpenvs"
+echo "DISCORD_BOT_TOKEN=\"$DISCORD_BOT_TOKEN\"" >> ".tmpenvs"
