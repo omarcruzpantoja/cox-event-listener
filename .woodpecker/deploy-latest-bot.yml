@@ -1,12 +1,14 @@
 when:
-  - event: [push, manual]
-  - branch: [main]
+  - event: push
+    branch: main
+  - event: manual
 
 steps:
   - name: Fetch and Initialize Credentials
     when:
-      - event: [push, manual]
-      - branch: [main]
+      - event: push
+        branch: main
+      - event: manual
     image: registry.mist-project.app/mist-shared/alpine-ci:latest
     environment:
       OP_SERVICE_ACCOUNT_TOKEN:
@@ -19,22 +21,43 @@ steps:
       - chmod +x helpers/fetch_creds_op.sh
       - ./helpers/fetch_creds_op.sh
 
-  - name: Build latest binary and deploy
+  - name: Install go and project deps and build latest binary and deploy
     when:
-      - event: [push, manual]
-      - branch: [main]
+      - event: push
+        branch: main
+      - event: manual
     image: registry.mist-project.app/mist-shared/alpine-ci:latest
     environment:
       ANSIBLE_HOST_KEY_CHECKING: False
     commands:
+      # Download Go tarball
+      - wget https://go.dev/dl/go1.25.0.linux-amd64.tar.gz
+
+      # Remove any existing Go installation
+      - rm -rf /usr/local/go
+
+      # Extract to /usr/local
+      - tar -C /usr/local -xzf go1.25.0.linux-amd64.tar.gz
+
+      # Export `go` bin
+      - export PATH="/usr/local/go/bin:$PATH"
+
+      # Install project dependencies
+      - go mod download
+
+      # Create directory
       - mkdir -p /tmp/cox-bin/
+
+      # Add ENV file
+      - cp .tmpenvs /tmp/cox-bin/.env
+
+      # Compile code into binary
       - go build -o /tmp/cox-bin/cox-event-listener src/main.go
-      - source .tmpenvs
+
+      # Run playbook
+      - ls /tmp/cox-bin/
       - |
         ansible-playbook -i ansible/inventory/hosts.ini \
           ansible/playbooks/deploy.yml \
           --extra-vars "ansible_ssh_private_key_file=key.pem" \
           --extra-vars "ansible_user=$TENANT_USERNAME" \
-          --extra-vars "DISCORD_APPLICATION_ID=$DISCORD_APPLICATION_ID" \
-          --extra-vars "DISCORD_PUBLIC_KEY=$DISCORD_PUBLIC_KEY" \
-          --extra-vars "DISCORD_BOT_TOKEN=$DISCORD_BOT_TOKEN" \

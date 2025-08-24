@@ -14,7 +14,8 @@
       copy:
         src: "/tmp/cox-bin/"
         dest: "opt/discord-bot/"
-
+      check_mode: true
+      diff: true
     # - name: Pull latest mist-backend image
     #   community.docker.docker_image:
     #     name: registry.mist-project.app/mist-backend:latest
