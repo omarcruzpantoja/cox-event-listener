@@ -4,8 +4,17 @@
   become: true
 
   tasks:
-    - name: Check we can connect
-      ansible.builtin.ping:
+    - name: Ensure /opt/discord-bot path exists
+      ansible.builtin.file:
+        path: /opt/discord-bot
+        state: directory
+        mode: "0755"
+
+    - name: Copy binary file to lxc container
+      copy:
+        src: "/tmp/cox-bin/"
+        dest: "opt/discord-bot/"
+
     # - name: Pull latest mist-backend image
     #   community.docker.docker_image:
     #     name: registry.mist-project.app/mist-backend:latest

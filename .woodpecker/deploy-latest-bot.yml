@@ -27,6 +27,8 @@ steps:
     environment:
       ANSIBLE_HOST_KEY_CHECKING: False
     commands:
+      - mkdir -p /tmp/cox-bin/
+      - go build -o /tmp/cox-bin/cox-event-listener src/main.go
       - source .tmpenvs
       - |
         ansible-playbook -i ansible/inventory/hosts.ini \
