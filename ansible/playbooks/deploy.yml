@@ -1,0 +1,73 @@
+- name: Deploy latest built binary to lxc container
+  hosts: lxc-discord-bot-service
+  gather_facts: false
+  become: true
+
+  vars:
+    svc_name: discord_bot
+    svc_dir: /opt/discord-bot
+
+  tasks:
+    # ----- COPY BINARY AND ENV FILE -----
+    - name: Ensure {{ svc_dir }} exists
+      ansible.builtin.file:
+        path: "{{ svc_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Copy binary file (and make it executable)
+      ansible.builtin.copy:
+        src: "/tmp/cox-bin/cox-event-listener"
+        dest: "{{ svc_dir }}/cox-event-listener"
+        mode: "0755"
+
+    - name: Copy .env
+      ansible.builtin.copy:
+        src: "/tmp/cox-bin/.env"
+        dest: "{{ svc_dir }}/.env"
+        mode: "0640"
+
+    # ----- INITIALIZE AND START SERVICE -----
+    - name: Add discord bot service file if it does not exist
+      ansible.builtin.stat:
+        path: "/etc/systemd/system/{{ svc_name }}.service"
+      register: unit_stat
+
+    - name: Create unit file if missing
+      ansible.builtin.copy:
+        dest: "/etc/systemd/system/{{ svc_name }}.service"
+        mode: "0644"
+        content: |
+          [Unit]
+          Description={{ svc_name }} service
+          After=network.target
+
+          [Service]
+          WorkingDirectory={{ svc_dir }}
+          ExecStart={{ svc_dir }}/cox-event-listener
+          EnvironmentFile={{ svc_dir }}/.env
+
+          Restart=always
+          RestartSec=60
+
+          [Install]
+          WantedBy=multi-user.target
+      when: not unit_stat.stat.exists
+      register: unit_drop
+
+    - name: Reload systemd if unit was created
+      ansible.builtin.systemd:
+        daemon_reload: true
+      when: unit_drop is defined and unit_drop.changed
+
+    - name: Enable and start service
+      ansible.builtin.systemd:
+        name: "{{ svc_name }}.service"
+        enabled: true
+        state: started
+
+    # Always restart at the end with the new binary/env
+    - name: Restart service with latest binary/env
+      ansible.builtin.systemd:
+        name: "{{ svc_name }}.service"
+        state: restarted
