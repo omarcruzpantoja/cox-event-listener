@@ -8,11 +8,14 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
 
 var (
+
+	// COX COMMAND MATCHERS
 	CoxCommand = "/cox-listener"
 
 	RoleIdRegex = regexp.MustCompile(`<@&\d+>`)
@@ -27,12 +30,28 @@ var (
 
 	helpRegex = regexp.MustCompile("/cox-listener help")
 
+	initializeMessageRegex = regexp.MustCompile("/cox-listener message-init")
+
 	// RATES MATCHERS
 	getRateValueRegex       = regexp.MustCompile(`x\d+`)
 	dropRateRegex           = regexp.MustCompile(`x\d+ drop rate`)
 	goldMultiplierRateRegex = regexp.MustCompile(`x\d+ gold multiplier rate`)
 	dbSocRateRegex          = regexp.MustCompile(`x\d+ dragonball soc rate`)
 	metSocRateRegex         = regexp.MustCompile(`x\d+ meteor soc rate`)
+
+	// WAR MATCHERS
+	dcWarDominanceRegex = regexp.MustCompile("(.*) won DC Battle for Dominance")
+	cityWarWinRegex     = regexp.MustCompile("(.*) won (AC|PC|BI) City War")
+
+	// TEXT VARS
+	cwMessageStart = `-
+**CW Results**
+PC: 
+AC: 
+DC: 
+BI: 
+
+**Next City War**: 10:00 UTC`
 )
 
 type MessageParser struct {
@@ -53,7 +72,8 @@ func (mp *MessageParser) Handle() {
 		mp.roleSetupHandler()
 	} else if helpRegex.MatchString(mp.m.Content) {
 		mp.helpHandler()
-
+	} else if initializeMessageRegex.MatchString(mp.m.Content) {
+		mp.initializeMessageHandler()
 	} else {
 
 		// If the reaction to the message is not included in the expected message ids, don't do anything
@@ -62,6 +82,7 @@ func (mp *MessageParser) Handle() {
 			return
 		}
 
+		fmt.Printf("(%s)\n", mp.m.Content)
 		if dropRateRegex.MatchString(mp.m.Content) {
 			mp.dropRateHandler()
 		} else if goldMultiplierRateRegex.MatchString(mp.m.Content) {
@@ -70,6 +91,8 @@ func (mp *MessageParser) Handle() {
 			mp.dbSocRateHandler()
 		} else if metSocRateRegex.MatchString(mp.m.Content) {
 			mp.metSocRateHandler()
+		} else if cityWarWinRegex.MatchString(mp.m.Content) || dcWarDominanceRegex.MatchString(mp.m.Content) {
+			mp.cityWarHandler()
 		}
 	}
 
@@ -86,14 +109,23 @@ func (mp *MessageParser) helpHandler() {
 2. **/cox-listener role-setup title="" description="" option1="" emoji1 ...** - Creates a message allowing users to receive role by selecting emojis.
 																																	 Use add role descriptions and its corresponding emoji using optionX="" and emojiX=""
 																																	 Example. option1="10x drop rates" emoji="💸"
+3. **/cox-listener message-init** - makes the bot send a message in the channel. Use _cw-init_ to initialize a city war format message
+																		Example: _/cox-listener message-init cw-init_
 `
 
 	_, err := mp.s.ChannelMessageSend(mp.m.ChannelID, commands)
 
 	if err != nil {
-		log.Printf("Failure sending message (helpHandler): %s", err)
+		log.Printf("Failure sending message (helpHandler): %s.\n", err)
 	}
+}
 
+func (mp *MessageParser) initializeMessageHandler() {
+	if strings.Contains(mp.m.Content, "cw-init") {
+		mp.s.ChannelMessageSend(mp.m.ChannelID, cwMessageStart)
+	} else {
+		mp.s.ChannelMessageSend(mp.m.ChannelID, "init")
+	}
 }
 
 func (mp *MessageParser) roleSetupHandler() {
@@ -143,7 +175,7 @@ func (mp *MessageParser) roleSetupHandler() {
 		if len(objId) > 1 {
 			id, err = strconv.Atoi(objId[1])
 			if err != nil {
-				log.Printf("Unable to find option id (roleSetupHandler): %s\n", err)
+				log.Printf("Unable to find option id (roleSetupHandler): %s.\n", err)
 				return
 			}
 		}
@@ -166,7 +198,7 @@ func (mp *MessageParser) roleSetupHandler() {
 		if len(objId) > 1 {
 			id, err = strconv.Atoi(objId[1])
 			if err != nil {
-				log.Printf("Unable to find option id (roleSetupHandler): %s\n", err)
+				log.Printf("Unable to find option id (roleSetupHandler): %s.\n", err)
 				return
 			}
 		}
@@ -189,7 +221,7 @@ func (mp *MessageParser) roleSetupHandler() {
 		if len(objId) > 1 {
 			id, err = strconv.Atoi(objId[1])
 			if err != nil {
-				log.Printf("Unable to find role id (roleSetupHandler): %s\n", err)
+				log.Printf("Unable to find role id (roleSetupHandler): %s.\n", err)
 				return
 			}
 		}
@@ -228,7 +260,7 @@ func (mp *MessageParser) roleSetupHandler() {
 	// Send a message including message description and role descriptions (and its emoji)
 	msg, err := mp.s.ChannelMessageSend(mp.m.ChannelID, strings.Join(msgDescription, "\n"))
 	if err != nil {
-		log.Printf("Failure sending message (roleSetupHandler): %s\n", err)
+		log.Printf("Failure sending message (roleSetupHandler): %s.\n", err)
 		return
 	}
 
@@ -236,14 +268,14 @@ func (mp *MessageParser) roleSetupHandler() {
 	for _, r := range reactions {
 		err := mp.s.MessageReactionAdd(mp.m.ChannelID, msg.ID, r)
 		if err != nil {
-			log.Printf("Failure reacting to message (roleSetupHandler): %s\n", err)
+			log.Printf("Failure reacting to message (roleSetupHandler): %s.\n", err)
 		}
 	}
 
 	// Delete command message
 	err = mp.s.ChannelMessageDelete(mp.m.ChannelID, mp.m.ID)
 	if err != nil {
-		log.Printf("Failure deleting message (roleSetupHandler): %s\n", err)
+		log.Printf("Failure deleting message (roleSetupHandler): %s.\n", err)
 	}
 
 }
@@ -256,7 +288,7 @@ func (mp *MessageParser) dropRateHandler() {
 		_, err := mp.s.ChannelMessageSend(channelId, fmt.Sprintf("%s %s", strings.Join(roles, " "), mp.m.Content))
 
 		if err != nil {
-			log.Printf("Error sending message (DropRate Message) to channel (%s)\n", channelId)
+			log.Printf("Error sending message (DropRate Message) to channel (%s). err: %s\n", channelId, err)
 		}
 	}
 }
@@ -269,7 +301,7 @@ func (mp *MessageParser) goldMultiplierRateHandler() {
 		_, err := mp.s.ChannelMessageSend(channelId, fmt.Sprintf("%s %s", strings.Join(roles, " "), mp.m.Content))
 
 		if err != nil {
-			log.Printf("Error sending message (GoldMultiplierRate Message) to channel (%s)\n", channelId)
+			log.Printf("Error sending message (GoldMultiplierRate Message) to channel (%s). err: %s\n", channelId, err)
 		}
 	}
 }
@@ -282,7 +314,7 @@ func (mp *MessageParser) dbSocRateHandler() {
 		_, err := mp.s.ChannelMessageSend(channelId, fmt.Sprintf("%s %s", strings.Join(roles, " "), mp.m.Content))
 
 		if err != nil {
-			log.Printf("Error sending message (DbSocRate Message) to channel (%s)\n", channelId)
+			log.Printf("Error sending message (DbSocRate Message) to channel (%s). err: %s\n", channelId, err)
 		}
 	}
 }
@@ -295,11 +327,68 @@ func (mp *MessageParser) metSocRateHandler() {
 		_, err := mp.s.ChannelMessageSend(channelId, fmt.Sprintf("%s %s", strings.Join(roles, " "), mp.m.Content))
 
 		if err != nil {
-			log.Printf("Error sending message (MetSocRate Message) to channel (%s)\n", channelId)
+			log.Printf("Error sending message (MetSocRate Message) to channel (%s). err: %s\n", channelId, err)
 		}
 	}
 }
 
+func (mp *MessageParser) cityWarHandler() {
+	var (
+		owner  string
+		city   string
+		groups []string
+	)
+
+	for _, cwID := range constants.CITY_WAR_CHANNEL_AND_MESSAGE_ID {
+		cwMessage, err := mp.s.ChannelMessage(cwID.ChannelID, cwID.MessageID)
+		lines := strings.Split(cwMessage.Content, "\n")
+
+		if groups = cityWarWinRegex.FindStringSubmatch(mp.m.Content); len(groups) > 1 {
+			owner = groups[1]
+			city = groups[2]
+		} else {
+			groups = dcWarDominanceRegex.FindStringSubmatch(mp.m.Content)
+			owner = groups[1]
+			city = "DC"
+		}
+
+		if err != nil {
+			log.Printf(
+				"Failed to get message from channel: (%s) message: (%s) (cityWarHandler)- err: %s.\n",
+				cwID.ChannelID, cwID.MessageID, err,
+			)
+			continue
+		}
+
+		lines[1] = fmt.Sprintf("**CW Results**\t(%s UTC)", addTimeOffset(time.Now().UTC(), 0, 0))
+
+		switch city {
+		case "PC":
+			lines[2] = fmt.Sprintf("PC:\t%s", owner)
+		case "AC":
+			lines[3] = fmt.Sprintf("AC:\t%s", owner)
+		case "DC":
+			lines[4] = fmt.Sprintf("DC:\t%s", owner)
+		case "BI":
+			lines[5] = fmt.Sprintf("BI:\t%s", owner)
+		}
+
+		lines[7] = fmt.Sprintf("**Next City War**: %s UTC", addTimeOffset(time.Now().UTC(), 4, 10))
+
+		_, err = mp.s.ChannelMessageEdit(cwID.ChannelID, cwID.MessageID, strings.Join(lines, "\n"))
+
+		if err != nil {
+			log.Printf(
+				"Failed to update message from channel (%s) message (%s) (cityWarHandler)- err: %s.\n",
+				cwID.ChannelID, cwID.MessageID, err,
+			)
+		}
+
+	}
+
+}
+
+// ----- HELPERS -----
 func (mp *MessageParser) rolesGenerator(rateType string) []string {
 
 	var (
@@ -353,4 +442,16 @@ func argParser(s string, separator string) string {
 	splitRes := strings.Split(s, separator)
 	// trim is for cleanup
 	return strings.Trim(splitRes[1], `"`)
+}
+
+func addTimeOffset(t time.Time, hours int, minutes int) string {
+	// Always work in UTC
+	utc := t.UTC()
+
+	// Add hours and minutes
+	newTime := utc.Add(time.Duration(hours) * time.Hour).
+		Add(time.Duration(minutes) * time.Minute)
+
+	// Return formatted string
+	return newTime.Format("15:00")
 }
