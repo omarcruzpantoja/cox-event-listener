@@ -8,6 +8,7 @@ TENANT_ADDRESS=$(op item get $TENANT_ACCOUNT_ID --vault "$OP_VAULT" --fields TEN
 DISCORD_APPLICATION_ID=$(op item get $TENANT_ACCOUNT_ID --vault "$OP_VAULT" --fields DISCORD_APPLICATION_ID --reveal)
 DISCORD_PUBLIC_KEY=$(op item get $TENANT_ACCOUNT_ID --vault "$OP_VAULT" --fields DISCORD_PUBLIC_KEY --reveal)
 DISCORD_BOT_TOKEN=$(op item get $TENANT_ACCOUNT_ID --vault "$OP_VAULT" --fields DISCORD_BOT_TOKEN --reveal)
+DISCORD_ACCOUNT_TOKEN=$(op item get $TENANT_ACCOUNT_ID --vault "$OP_VAULT" --fields DISCORD_ACCOUNT_TOKEN --reveal)
 
 # ---- BACKEND ACCOUNT ----
 
@@ -32,5 +33,6 @@ touch .tmpenvs
 echo "TENANT_USERNAME=$TENANT_USERNAME" >> ".tmpenvs"
 
 echo "DISCORD_APPLICATION_ID=\"$DISCORD_APPLICATION_ID\"" >> ".tmpenvs"
-echo "DISCORD_PUBLIC_KEY=\"$DISCORD_PUBLIC_KEY\"" >> ".tmpenvs"
 echo "DISCORD_BOT_TOKEN=\"$DISCORD_BOT_TOKEN\"" >> ".tmpenvs"
+echo "DISCORD_ACCOUNT_TOKEN=\"$DISCORD_ACCOUNT_TOKEN\"" >> ".tmpenvs"
+echo "DISCORD_PUBLIC_KEY=\"$DISCORD_PUBLIC_KEY\"" >> ".tmpenvs"
