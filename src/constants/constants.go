@@ -15,6 +15,10 @@ var (
 		"1325993204725583967", // P&O general
 	}
 
+	ACCOUNT_LISTENING_CHANNEL_IDS = []string{
+		"1068927561058488353", // COX event feed channel id
+	}
+
 	RELAY_MESSAGE_CHANNEL_IDS = []string{
 		"1408930128205053972", // P&O events feed channel
 	}

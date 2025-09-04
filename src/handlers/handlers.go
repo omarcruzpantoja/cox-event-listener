@@ -17,8 +17,6 @@ func MessageCreateHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	var p *parsers.MessageParser
 
-	// fmt.Printf("[%s] %s: %s...\n", m.ChannelID, m.Author.Username, m.Content)
-
 	p = parsers.NewMessageParser(s, m)
 	p.Handle()
 }
@@ -67,4 +65,28 @@ func MessageReactionRemoveHandler(s *discordgo.Session, r *discordgo.MessageReac
 
 		add: false,
 	})
+}
+
+func AccountMessageCreateHandler(pubChannel chan<- *discordgo.MessageCreate) func(s *discordgo.Session, m *discordgo.MessageCreate) {
+	return func(s *discordgo.Session, m *discordgo.MessageCreate) {
+		// Ignore messages from the bot itself
+		if m.Author.ID == s.State.User.ID {
+			return
+		}
+
+		if !slices.Contains(constants.ACCOUNT_LISTENING_CHANNEL_IDS, m.ChannelID) {
+			return
+		}
+
+		pubChannel <- m
+	}
+}
+
+func BufferedMessageCreateHandler(subChannel <-chan *discordgo.MessageCreate, s *discordgo.Session) {
+	go func() {
+		for msg := range subChannel {
+			p := parsers.NewMessageParser(s, msg)
+			p.Handle()
+		}
+	}()
 }

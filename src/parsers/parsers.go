@@ -82,7 +82,6 @@ func (mp *MessageParser) Handle() {
 			return
 		}
 
-		fmt.Printf("(%s)\n", mp.m.Content)
 		if dropRateRegex.MatchString(mp.m.Content) {
 			mp.dropRateHandler()
 		} else if goldMultiplierRateRegex.MatchString(mp.m.Content) {
