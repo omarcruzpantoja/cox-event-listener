@@ -5,9 +5,15 @@ type CityWarIDs struct {
 	MessageID string
 }
 
+type LabBosIDs struct {
+	ChannelID string
+	MessageID string
+}
+
 var (
 	ASSIGN_ROLE_MESSAGE_IDS = []string{
-		"1408951046323175618", // P&O Server
+		"1415116596392890368", // P&O Server Rates
+		"1415141373392453702", // P&O Server Lab Boss Spawn
 	}
 
 	LISTENING_CHANNEL_IDS = []string{
@@ -33,7 +39,7 @@ var (
 	GOLD_MULTIPLIER_RATE_ROLE_IDS = []string{
 		"1408913674340663296", // P&O server
 	}
-	GOLD_MULTIPLIER_RATE_5X_ROLE_IDS = []string{
+	GOLD_MULTIPLIER_RATE_10X_ROLE_IDS = []string{
 		"1408913719555129384", // P&O server
 	}
 
@@ -47,7 +53,15 @@ var (
 	MET_SOC_RATE_ROLE_IDS     = []string{}
 	MET_SOC_RATE_10X_ROLE_IDS = []string{}
 
+	LAB_BOSS_ROLE_IDS = []string{
+		"1415136091681587201", // LAB_BOSS_SPAWN
+	}
+
 	CITY_WAR_CHANNEL_AND_MESSAGE_ID = []CityWarIDs{
 		{ChannelID: "1409693429482393710", MessageID: "1409701198692352151"}, // P&O Channel/Message
+	}
+
+	LAB_BOSS_CHANNEL_AND_MESSAGE_ID = []LabBosIDs{
+		{ChannelID: "1409693429482393710", MessageID: "1415121652672630836"}, // P&O Channel/Message
 	}
 )

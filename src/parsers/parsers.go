@@ -43,6 +43,10 @@ var (
 	dcWarDominanceRegex = regexp.MustCompile("(.*) won DC Battle for Dominance")
 	cityWarWinRegex     = regexp.MustCompile("(.*) won (AC|PC|BI) City War")
 
+	// LAB BOSS WATCHES
+	labBossSpawnRegex = regexp.MustCompile("(Howler|Gibbon|Talon|NagaLord) lab boss has been spawned random.")
+	labBossKillRegex  = regexp.MustCompile("(Howler|Gibbon|Talon|NagaLord) lab boss has been killed by .*")
+
 	// TEXT VARS
 	cwMessageStart = `-
 **CW Results**
@@ -52,6 +56,16 @@ DC:
 BI: 
 
 **Next City War**: 10:00 UTC`
+
+	labBossStart = `-
+Lab 1 (Gibbon):
+Lab 2 (Naga):
+Lab 3 (Talon):
+Lab 4 (Howler):
+`
+
+	MINUTES_FORMAT = "15:04"
+	HOURS_FORMAT   = "15:00"
 )
 
 type MessageParser struct {
@@ -92,6 +106,10 @@ func (mp *MessageParser) Handle() {
 			mp.metSocRateHandler()
 		} else if cityWarWinRegex.MatchString(mp.m.Content) || dcWarDominanceRegex.MatchString(mp.m.Content) {
 			mp.cityWarHandler()
+		} else if labBossSpawnRegex.MatchString(mp.m.Content) {
+			mp.labBossHandler(false)
+		} else if labBossKillRegex.MatchString((mp.m.Content)) {
+			mp.labBossHandler(true)
 		}
 	}
 
@@ -122,6 +140,8 @@ func (mp *MessageParser) helpHandler() {
 func (mp *MessageParser) initializeMessageHandler() {
 	if strings.Contains(mp.m.Content, "cw-init") {
 		mp.s.ChannelMessageSend(mp.m.ChannelID, cwMessageStart)
+	} else if strings.Contains(mp.m.Content, "lab-boss-start") {
+		mp.s.ChannelMessageSend(mp.m.ChannelID, labBossStart)
 	} else {
 		mp.s.ChannelMessageSend(mp.m.ChannelID, "init")
 	}
@@ -280,7 +300,7 @@ func (mp *MessageParser) roleSetupHandler() {
 }
 
 func (mp *MessageParser) dropRateHandler() {
-	roles := mp.rolesGenerator("drop")
+	roles := mp.rolesGeneratorRates("drop")
 
 	for _, channelId := range constants.RELAY_MESSAGE_CHANNEL_IDS {
 
@@ -293,7 +313,7 @@ func (mp *MessageParser) dropRateHandler() {
 }
 
 func (mp *MessageParser) goldMultiplierRateHandler() {
-	roles := mp.rolesGenerator("gold")
+	roles := mp.rolesGeneratorRates("gold")
 
 	for _, channelId := range constants.RELAY_MESSAGE_CHANNEL_IDS {
 
@@ -306,7 +326,7 @@ func (mp *MessageParser) goldMultiplierRateHandler() {
 }
 
 func (mp *MessageParser) dbSocRateHandler() {
-	roles := mp.rolesGenerator("dbSoc")
+	roles := mp.rolesGeneratorRates("dbSoc")
 
 	for _, channelId := range constants.RELAY_MESSAGE_CHANNEL_IDS {
 
@@ -319,7 +339,7 @@ func (mp *MessageParser) dbSocRateHandler() {
 }
 
 func (mp *MessageParser) metSocRateHandler() {
-	roles := mp.rolesGenerator("metSoc")
+	roles := mp.rolesGeneratorRates("metSoc")
 
 	for _, channelId := range constants.RELAY_MESSAGE_CHANNEL_IDS {
 
@@ -327,6 +347,86 @@ func (mp *MessageParser) metSocRateHandler() {
 
 		if err != nil {
 			log.Printf("Error sending message (MetSocRate Message) to channel (%s). err: %s\n", channelId, err)
+		}
+	}
+}
+
+func (mp *MessageParser) labBossHandler(killed bool) {
+	var (
+		boss    string
+		groups  []string
+		message string
+		lab     string
+		roles   []string
+	)
+
+	roles = mp.roleGenerator("labBoss")
+
+	for _, lbID := range constants.LAB_BOSS_CHANNEL_AND_MESSAGE_ID {
+		labMessage, err := mp.s.ChannelMessage(lbID.ChannelID, lbID.MessageID)
+		lines := strings.Split(labMessage.Content, "\n")
+
+		if killed {
+			groups = labBossKillRegex.FindStringSubmatch(mp.m.Content)
+			boss = groups[1]
+		} else {
+			groups = labBossSpawnRegex.FindStringSubmatch(mp.m.Content)
+			boss = groups[1]
+		}
+
+		if killed {
+			message = fmt.Sprintf(
+				"DEAD respawns in: (%s-%s EST) ",
+				addTimeOffset(time.Now(), 5, 0, MINUTES_FORMAT),
+				addTimeOffset(time.Now(), 8, 0, MINUTES_FORMAT),
+			)
+		} else {
+			message = fmt.Sprintf(
+				"SPAWNED (%s EST)", addTimeOffset(time.Now(), 0, 0, MINUTES_FORMAT),
+			)
+		}
+
+		switch boss {
+		case "Gibbon":
+			lines[1] = fmt.Sprintf("Lab 1 (Gibbon):\t%s", message)
+			lab = "1"
+		case "NagaLord":
+			lines[2] = fmt.Sprintf("Lab 2 (Naga):\t%s", message)
+			lab = "2"
+		case "Talon":
+			lines[3] = fmt.Sprintf("Lab 3 (Talon):\t%s", message)
+			lab = "3"
+		case "Howler":
+			lines[4] = fmt.Sprintf("Lab 4 (Howler):\t%s", message)
+			lab = "4"
+		}
+
+		_, err = mp.s.ChannelMessageEdit(lbID.ChannelID, lbID.MessageID, strings.Join(lines, "\n"))
+
+		if err != nil {
+			log.Printf(
+				"Failed to update message from channel (%s) message (%s) (labBossHandler)- err: %s.\n",
+				lbID.ChannelID, lbID.MessageID, err,
+			)
+		}
+	}
+
+	if !killed {
+		for _, channelId := range constants.RELAY_MESSAGE_CHANNEL_IDS {
+
+			_, err := mp.s.ChannelMessageSend(
+				channelId,
+				fmt.Sprintf(
+					"%s (%s EST): Lab%s -> %s", strings.Join(roles, " "),
+					addTimeOffset(time.Now(), 0, 0, MINUTES_FORMAT),
+					lab,
+					boss,
+				),
+			)
+
+			if err != nil {
+				log.Printf("Error sending message (GoldMultiplierRate Message) to channel (%s). err: %s\n", channelId, err)
+			}
 		}
 	}
 }
@@ -359,7 +459,7 @@ func (mp *MessageParser) cityWarHandler() {
 			continue
 		}
 
-		lines[1] = fmt.Sprintf("**CW Results**\t(%s UTC)", addTimeOffset(time.Now().UTC(), 0, 0))
+		lines[1] = fmt.Sprintf("**CW Results**\t(%s UTC)", addTimeOffset(time.Now().UTC(), 0, 0, HOURS_FORMAT))
 
 		switch city {
 		case "PC":
@@ -372,7 +472,7 @@ func (mp *MessageParser) cityWarHandler() {
 			lines[5] = fmt.Sprintf("BI:\t%s", owner)
 		}
 
-		lines[7] = fmt.Sprintf("**Next City War**: %s UTC", addTimeOffset(time.Now().UTC(), 4, 10))
+		lines[7] = fmt.Sprintf("**Next City War**: %s UTC", addTimeOffset(time.Now().UTC(), 4, 10, HOURS_FORMAT))
 
 		_, err = mp.s.ChannelMessageEdit(cwID.ChannelID, cwID.MessageID, strings.Join(lines, "\n"))
 
@@ -382,13 +482,11 @@ func (mp *MessageParser) cityWarHandler() {
 				cwID.ChannelID, cwID.MessageID, err,
 			)
 		}
-
 	}
-
 }
 
 // ----- HELPERS -----
-func (mp *MessageParser) rolesGenerator(rateType string) []string {
+func (mp *MessageParser) rolesGeneratorRates(rateType string) []string {
 
 	var (
 		roles   []string
@@ -410,7 +508,7 @@ func (mp *MessageParser) rolesGenerator(rateType string) []string {
 		tenXIds = constants.DROP_RATE_10X_ROLE_IDS
 	case "gold":
 		allIds = constants.GOLD_MULTIPLIER_RATE_ROLE_IDS
-		tenXIds = constants.GOLD_MULTIPLIER_RATE_5X_ROLE_IDS
+		tenXIds = constants.GOLD_MULTIPLIER_RATE_10X_ROLE_IDS
 	case "dbSoc":
 		allIds = constants.DB_SOC_RATE_ROLE_IDS
 		tenXIds = constants.DB_SOC_RATE_10X_ROLE_IDS
@@ -437,20 +535,34 @@ func (mp *MessageParser) rolesGenerator(rateType string) []string {
 	return roles
 }
 
+func (mp *MessageParser) roleGenerator(event string) []string {
+
+	var (
+		roles []string
+	)
+
+	switch event {
+	case "labBoss":
+		for _, roleId := range constants.LAB_BOSS_ROLE_IDS {
+			roles = append(roles, fmt.Sprintf("<@&%s>", roleId))
+		}
+	}
+
+	return roles
+}
+
 func argParser(s string, separator string) string {
 	splitRes := strings.Split(s, separator)
 	// trim is for cleanup
 	return strings.Trim(splitRes[1], `"`)
 }
 
-func addTimeOffset(t time.Time, hours int, minutes int) string {
-	// Always work in UTC
-	utc := t.UTC()
-
-	// Add hours and minutes
-	newTime := utc.Add(time.Duration(hours) * time.Hour).
+func addTimeOffset(t time.Time, hours int, minutes int, format string) string {
+	// Add hours and minutes with correct units
+	newTime := t.
+		Add(time.Duration(hours) * time.Hour).
 		Add(time.Duration(minutes) * time.Minute)
 
 	// Return formatted string
-	return newTime.Format("15:00")
+	return newTime.Format(format)
 }
