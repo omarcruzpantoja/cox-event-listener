@@ -563,6 +563,13 @@ func addTimeOffset(t time.Time, hours int, minutes int, format string) string {
 		Add(time.Duration(hours) * time.Hour).
 		Add(time.Duration(minutes) * time.Minute)
 
-	// Return formatted string
-	return newTime.Format(format)
+	// Load the EST/EDT (America/New_York) timezone
+	loc, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		// fallback: just return UTC formatted
+		return newTime.Format(format)
+	}
+
+	// Convert to EST/EDT and format
+	return newTime.In(loc).Format(format)
 }
