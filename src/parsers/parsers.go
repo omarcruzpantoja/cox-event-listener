@@ -425,7 +425,7 @@ func (mp *MessageParser) labBossHandler(killed bool) {
 			)
 
 			if err != nil {
-				log.Printf("Error sending message (GoldMultiplierRate Message) to channel (%s). err: %s\n", channelId, err)
+				log.Printf("Error sending message (labBossHandler Message) to channel (%s). err: %s\n", channelId, err)
 			}
 		}
 	}
