@@ -32,6 +32,7 @@ var (
 
 	DROP_RATE_ROLE_IDS = []string{
 		"1408913591125540954", // P&O server
+		"1387734426502565969", // ROGUE server
 	}
 	DROP_RATE_10X_ROLE_IDS = []string{
 		"1408913379137032322", // P&O server
