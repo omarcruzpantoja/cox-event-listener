@@ -58,8 +58,8 @@ var (
 
 	// Channels to send messages to, this is the channel you create for mentions to be sent.
 	RELAY_MESSAGE_CHANNEL_IDS = []RelayMessageIDs{
-		{ServerID: PO_SERVER_ID, ChannelID: "1408930128205053972"},    // P&O events feed channel
-		{ServerID: ROGUE_SERVER_ID, ChannelID: "1415864173367398441"}, // ROGUE CHANNEL
+		{ServerID: PO_SERVER_ID, ChannelID: "1408930128205053972"}, // P&O events feed channel
+		// {ServerID: ROGUE_SERVER_ID, ChannelID: "1415864173367398441"}, // ROGUE CHANNEL
 	}
 
 	// Role IDs for `Drop rate all`
@@ -93,6 +93,22 @@ var (
 	LAB_BOSS_ROLE_IDS = []RoleIDs{
 		{ServerID: PO_SERVER_ID, RoleID: "1415136091681587201"},    // LAB_BOSS_SPAWN (P&O)
 		{ServerID: ROGUE_SERVER_ID, RoleID: "1392926180818292889"}, // ROGUE
+	}
+
+	LAB_BOSS_GIBBON_ROLE = []RoleIDs{
+		{ServerID: PO_SERVER_ID, RoleID: "1419146940892975164"}, // LAB_BOSS_SPAWN (P&O)
+	}
+
+	LAB_BOSS_NAGA_LORD_ROLE = []RoleIDs{
+		{ServerID: PO_SERVER_ID, RoleID: "1419147201275494481"}, // LAB_BOSS_SPAWN (P&O)
+	}
+
+	LAB_BOSS_TALON_ROLE = []RoleIDs{
+		{ServerID: PO_SERVER_ID, RoleID: "1419148293853941760"}, // LAB_BOSS_SPAWN (P&O)
+	}
+
+	LAB_BOSS_HOWLER_ROLE = []RoleIDs{
+		{ServerID: PO_SERVER_ID, RoleID: "1419147397472194590"}, // LAB_BOSS_SPAWN (P&O)
 	}
 
 	CITY_WAR_CHANNEL_AND_MESSAGE_ID = []CityWarIDs{

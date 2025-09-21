@@ -373,7 +373,7 @@ func (mp *MessageParser) labBossHandler(killed bool) {
 		serverRoles ServerRoleMap
 	)
 
-	serverRoles = mp.roleGenerator("labBoss")
+	serverRoles = mp.roleGenerator("labBoss", nil)
 
 	for _, lbID := range constants.LAB_BOSS_CHANNEL_AND_MESSAGE_ID {
 		labMessage, err := mp.s.ChannelMessage(lbID.ChannelID, lbID.MessageID)
@@ -401,15 +401,19 @@ func (mp *MessageParser) labBossHandler(killed bool) {
 
 		switch boss {
 		case "Gibbon":
+			mp.roleGenerator("gibbon", &serverRoles)
 			lines[1] = fmt.Sprintf("Lab 1 (Gibbon):\t%s", message)
 			lab = "1"
 		case "NagaLord":
+			mp.roleGenerator("nagaLord", &serverRoles)
 			lines[2] = fmt.Sprintf("Lab 2 (Naga):\t%s", message)
 			lab = "2"
 		case "Talon":
+			mp.roleGenerator("talon", &serverRoles)
 			lines[3] = fmt.Sprintf("Lab 3 (Talon):\t%s", message)
 			lab = "3"
 		case "Howler":
+			mp.roleGenerator("howler", &serverRoles)
 			lines[4] = fmt.Sprintf("Lab 4 (Howler):\t%s", message)
 			lab = "4"
 		}
@@ -548,15 +552,34 @@ func (mp *MessageParser) rolesGeneratorRates(rateType string) ServerRoleMap {
 	return roleMap
 }
 
-func (mp *MessageParser) roleGenerator(event string) ServerRoleMap {
+func (mp *MessageParser) roleGenerator(event string, role *ServerRoleMap) ServerRoleMap {
+	var roleMap ServerRoleMap
 
-	var (
-		roleMap ServerRoleMap = make(map[string][]string)
-	)
+	if role == nil {
+		roleMap = make(map[string][]string)
+	} else {
+		roleMap = *role
+	}
 
 	switch event {
 	case "labBoss":
 		for _, role := range constants.LAB_BOSS_ROLE_IDS {
+			roleMap[role.ServerID] = append(roleMap[role.ServerID], fmt.Sprintf("<@&%s>", roleMap[role.RoleID]))
+		}
+	case "gibbon":
+		for _, role := range constants.LAB_BOSS_GIBBON_ROLE {
+			roleMap[role.ServerID] = append(roleMap[role.ServerID], fmt.Sprintf("<@&%s>", roleMap[role.RoleID]))
+		}
+	case "nagaLord":
+		for _, role := range constants.LAB_BOSS_NAGA_LORD_ROLE {
+			roleMap[role.ServerID] = append(roleMap[role.ServerID], fmt.Sprintf("<@&%s>", roleMap[role.RoleID]))
+		}
+	case "talon":
+		for _, role := range constants.LAB_BOSS_TALON_ROLE {
+			roleMap[role.ServerID] = append(roleMap[role.ServerID], fmt.Sprintf("<@&%s>", roleMap[role.RoleID]))
+		}
+	case "howler":
+		for _, role := range constants.LAB_BOSS_HOWLER_ROLE {
 			roleMap[role.ServerID] = append(roleMap[role.ServerID], fmt.Sprintf("<@&%s>", roleMap[role.RoleID]))
 		}
 	}
