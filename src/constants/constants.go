@@ -58,8 +58,8 @@ var (
 
 	// Channels to send messages to, this is the channel you create for mentions to be sent.
 	RELAY_MESSAGE_CHANNEL_IDS = []RelayMessageIDs{
-		{ServerID: PO_SERVER_ID, ChannelID: "1408930128205053972"}, // P&O events feed channel
-		// {ServerID: ROGUE_SERVER_ID, ChannelID: "1415864173367398441"}, // ROGUE CHANNEL
+		{ServerID: PO_SERVER_ID, ChannelID: "1408930128205053972"},    // P&O events feed channel
+		{ServerID: ROGUE_SERVER_ID, ChannelID: "1415864173367398441"}, // ROGUE CHANNEL
 	}
 
 	// Role IDs for `Drop rate all`

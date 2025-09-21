@@ -442,7 +442,9 @@ func (mp *MessageParser) labBossHandler(killed bool) {
 			)
 
 			if err != nil {
-				log.Printf("Error sending message (labBossHandler Message) to channel (%s). err: %s\n", channel.ChannelID, err)
+				log.Printf(
+					"Error sending message (labBossHandler Message) to channel (%s). err: %s\n", channel.ChannelID, err,
+				)
 			}
 		}
 	}
@@ -564,23 +566,23 @@ func (mp *MessageParser) roleGenerator(event string, role *ServerRoleMap) Server
 	switch event {
 	case "labBoss":
 		for _, role := range constants.LAB_BOSS_ROLE_IDS {
-			roleMap[role.ServerID] = append(roleMap[role.ServerID], fmt.Sprintf("<@&%s>", roleMap[role.RoleID]))
+			roleMap[role.ServerID] = append(roleMap[role.ServerID], fmt.Sprintf("<@&%s>", role.RoleID))
 		}
 	case "gibbon":
 		for _, role := range constants.LAB_BOSS_GIBBON_ROLE {
-			roleMap[role.ServerID] = append(roleMap[role.ServerID], fmt.Sprintf("<@&%s>", roleMap[role.RoleID]))
+			roleMap[role.ServerID] = append(roleMap[role.ServerID], fmt.Sprintf("<@&%s>", role.RoleID))
 		}
 	case "nagaLord":
 		for _, role := range constants.LAB_BOSS_NAGA_LORD_ROLE {
-			roleMap[role.ServerID] = append(roleMap[role.ServerID], fmt.Sprintf("<@&%s>", roleMap[role.RoleID]))
+			roleMap[role.ServerID] = append(roleMap[role.ServerID], fmt.Sprintf("<@&%s>", role.RoleID))
 		}
 	case "talon":
 		for _, role := range constants.LAB_BOSS_TALON_ROLE {
-			roleMap[role.ServerID] = append(roleMap[role.ServerID], fmt.Sprintf("<@&%s>", roleMap[role.RoleID]))
+			roleMap[role.ServerID] = append(roleMap[role.ServerID], fmt.Sprintf("<@&%s>", role.RoleID))
 		}
 	case "howler":
 		for _, role := range constants.LAB_BOSS_HOWLER_ROLE {
-			roleMap[role.ServerID] = append(roleMap[role.ServerID], fmt.Sprintf("<@&%s>", roleMap[role.RoleID]))
+			roleMap[role.ServerID] = append(roleMap[role.ServerID], fmt.Sprintf("<@&%s>", role.RoleID))
 		}
 	}
 
