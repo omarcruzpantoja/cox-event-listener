@@ -74,7 +74,7 @@ func AccountMessageCreateHandler(pubChannel chan<- *discordgo.MessageCreate) fun
 			return
 		}
 
-		if !slices.Contains(constants.ACCOUNT_LISTENING_CHANNEL_IDS, m.ChannelID) {
+		if !slices.Contains(constants.SECOND_BOT_LISTENING_CHANNEL_IDS, m.ChannelID) {
 			return
 		}
 

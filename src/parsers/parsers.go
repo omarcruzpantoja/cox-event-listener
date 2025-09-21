@@ -73,6 +73,8 @@ type MessageParser struct {
 	m *discordgo.MessageCreate
 }
 
+type ServerRoleMap = map[string][]string
+
 func NewMessageParser(session *discordgo.Session, message *discordgo.MessageCreate) *MessageParser {
 	return &MessageParser{
 		s: session,
@@ -82,9 +84,9 @@ func NewMessageParser(session *discordgo.Session, message *discordgo.MessageCrea
 
 func (mp *MessageParser) Handle() {
 	// First check for cox-listener commands
-	if roleSetupRegex.MatchString(mp.m.Content) {
+	if roleSetupRegex.MatchString(mp.m.Content) && mp.isAdminUser() {
 		mp.roleSetupHandler()
-	} else if helpRegex.MatchString(mp.m.Content) {
+	} else if helpRegex.MatchString(mp.m.Content) && mp.isAdminUser() {
 		mp.helpHandler()
 	} else if initializeMessageRegex.MatchString(mp.m.Content) {
 		mp.initializeMessageHandler()
@@ -302,12 +304,15 @@ func (mp *MessageParser) roleSetupHandler() {
 func (mp *MessageParser) dropRateHandler() {
 	roles := mp.rolesGeneratorRates("drop")
 
-	for _, channelId := range constants.RELAY_MESSAGE_CHANNEL_IDS {
+	for _, channel := range constants.RELAY_MESSAGE_CHANNEL_IDS {
 
-		_, err := mp.s.ChannelMessageSend(channelId, fmt.Sprintf("%s %s", strings.Join(roles, " "), mp.m.Content))
+		_, err := mp.s.ChannelMessageSend(
+			channel.ChannelID,
+			fmt.Sprintf("%s %s", strings.Join(roles[channel.ServerID], " "), mp.m.Content),
+		)
 
 		if err != nil {
-			log.Printf("Error sending message (DropRate Message) to channel (%s). err: %s\n", channelId, err)
+			log.Printf("Error sending message (DropRate Message) to channel (%s). err: %s\n", channel.ChannelID, err)
 		}
 	}
 }
@@ -315,12 +320,16 @@ func (mp *MessageParser) dropRateHandler() {
 func (mp *MessageParser) goldMultiplierRateHandler() {
 	roles := mp.rolesGeneratorRates("gold")
 
-	for _, channelId := range constants.RELAY_MESSAGE_CHANNEL_IDS {
+	for _, channel := range constants.RELAY_MESSAGE_CHANNEL_IDS {
 
-		_, err := mp.s.ChannelMessageSend(channelId, fmt.Sprintf("%s %s", strings.Join(roles, " "), mp.m.Content))
+		_, err := mp.s.ChannelMessageSend(
+			channel.ChannelID, fmt.Sprintf("%s %s", strings.Join(roles[channel.ServerID], " "), mp.m.Content),
+		)
 
 		if err != nil {
-			log.Printf("Error sending message (GoldMultiplierRate Message) to channel (%s). err: %s\n", channelId, err)
+			log.Printf(
+				"Error sending message (GoldMultiplierRate Message) to channel (%s). err: %s\n", channel.ChannelID, err,
+			)
 		}
 	}
 }
@@ -328,12 +337,14 @@ func (mp *MessageParser) goldMultiplierRateHandler() {
 func (mp *MessageParser) dbSocRateHandler() {
 	roles := mp.rolesGeneratorRates("dbSoc")
 
-	for _, channelId := range constants.RELAY_MESSAGE_CHANNEL_IDS {
+	for _, channel := range constants.RELAY_MESSAGE_CHANNEL_IDS {
 
-		_, err := mp.s.ChannelMessageSend(channelId, fmt.Sprintf("%s %s", strings.Join(roles, " "), mp.m.Content))
+		_, err := mp.s.ChannelMessageSend(
+			channel.ChannelID, fmt.Sprintf("%s %s", strings.Join(roles[channel.ServerID], " "), mp.m.Content),
+		)
 
 		if err != nil {
-			log.Printf("Error sending message (DbSocRate Message) to channel (%s). err: %s\n", channelId, err)
+			log.Printf("Error sending message (DbSocRate Message) to channel (%s). err: %s\n", channel.ChannelID, err)
 		}
 	}
 }
@@ -341,12 +352,14 @@ func (mp *MessageParser) dbSocRateHandler() {
 func (mp *MessageParser) metSocRateHandler() {
 	roles := mp.rolesGeneratorRates("metSoc")
 
-	for _, channelId := range constants.RELAY_MESSAGE_CHANNEL_IDS {
+	for _, channel := range constants.RELAY_MESSAGE_CHANNEL_IDS {
 
-		_, err := mp.s.ChannelMessageSend(channelId, fmt.Sprintf("%s %s", strings.Join(roles, " "), mp.m.Content))
+		_, err := mp.s.ChannelMessageSend(
+			channel.ChannelID, fmt.Sprintf("%s %s", strings.Join(roles[channel.ServerID], " "), mp.m.Content),
+		)
 
 		if err != nil {
-			log.Printf("Error sending message (MetSocRate Message) to channel (%s). err: %s\n", channelId, err)
+			log.Printf("Error sending message (MetSocRate Message) to channel (%s). err: %s\n", channel.ChannelID, err)
 		}
 	}
 }
@@ -412,10 +425,10 @@ func (mp *MessageParser) labBossHandler(killed bool) {
 	}
 
 	if !killed {
-		for _, channelId := range constants.RELAY_MESSAGE_CHANNEL_IDS {
+		for _, channel := range constants.RELAY_MESSAGE_CHANNEL_IDS {
 
 			_, err := mp.s.ChannelMessageSend(
-				channelId,
+				channel.ChannelID,
 				fmt.Sprintf(
 					"%s (%s EST): Lab%s -> %s", strings.Join(roles, " "),
 					addTimeOffset(time.Now(), 0, 0, MINUTES_FORMAT),
@@ -425,7 +438,7 @@ func (mp *MessageParser) labBossHandler(killed bool) {
 			)
 
 			if err != nil {
-				log.Printf("Error sending message (labBossHandler Message) to channel (%s). err: %s\n", channelId, err)
+				log.Printf("Error sending message (labBossHandler Message) to channel (%s). err: %s\n", channel.ChannelID, err)
 			}
 		}
 	}
@@ -486,17 +499,17 @@ func (mp *MessageParser) cityWarHandler() {
 }
 
 // ----- HELPERS -----
-func (mp *MessageParser) rolesGeneratorRates(rateType string) []string {
+func (mp *MessageParser) rolesGeneratorRates(rateType string) ServerRoleMap {
 
 	var (
-		roles   []string
-		allIds  []string
-		tenXIds []string
+		roleMap ServerRoleMap = make(map[string][]string)
+		allIds  []constants.RoleIDs
+		tenXIds []constants.RoleIDs
 	)
 
 	if strings.Contains(mp.m.Content, "finished") {
-		// if the message has "finished" in it, don't all notifications (roles)
-		return roles
+		// if the message has "finished" in it, don't add notifications (roles)
+		return roleMap
 	}
 
 	stringRate := argParser(getRateValueRegex.FindString(mp.m.Content), "x")
@@ -519,20 +532,20 @@ func (mp *MessageParser) rolesGeneratorRates(rateType string) []string {
 
 	if err != nil {
 		log.Printf("Error parsing drop rate value (%s).\n", stringRate)
-		return roles
+		return roleMap
 	}
 
 	for _, allRateIds := range allIds {
-		roles = append(roles, fmt.Sprintf("<@&%s>", allRateIds))
+		roleMap[allRateIds.ServerID] = append(roleMap[allRateIds.ServerID], fmt.Sprintf("<@&%s>", allRateIds))
 	}
 
 	if rate >= 10 {
 		for _, tenXRateIds := range tenXIds {
-			roles = append(roles, fmt.Sprintf("<@&%s>", tenXRateIds))
+			roleMap[tenXRateIds.ServerID] = append(roleMap[tenXRateIds.ServerID], fmt.Sprintf("<@&%s>", tenXRateIds))
 		}
 	}
 
-	return roles
+	return roleMap
 }
 
 func (mp *MessageParser) roleGenerator(event string) []string {
@@ -549,6 +562,10 @@ func (mp *MessageParser) roleGenerator(event string) []string {
 	}
 
 	return roles
+}
+
+func (mp *MessageParser) isAdminUser() bool {
+	return mp.m.Author != nil && slices.Contains(constants.ADMIN_USERS, mp.m.Author.ID)
 }
 
 func argParser(s string, separator string) string {
