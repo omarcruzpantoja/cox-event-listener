@@ -366,14 +366,14 @@ func (mp *MessageParser) metSocRateHandler() {
 
 func (mp *MessageParser) labBossHandler(killed bool) {
 	var (
-		boss    string
-		groups  []string
-		message string
-		lab     string
-		roles   []string
+		boss        string
+		groups      []string
+		message     string
+		lab         string
+		serverRoles ServerRoleMap
 	)
 
-	roles = mp.roleGenerator("labBoss")
+	serverRoles = mp.roleGenerator("labBoss")
 
 	for _, lbID := range constants.LAB_BOSS_CHANNEL_AND_MESSAGE_ID {
 		labMessage, err := mp.s.ChannelMessage(lbID.ChannelID, lbID.MessageID)
@@ -430,7 +430,7 @@ func (mp *MessageParser) labBossHandler(killed bool) {
 			_, err := mp.s.ChannelMessageSend(
 				channel.ChannelID,
 				fmt.Sprintf(
-					"%s (%s EST): Lab%s -> %s", strings.Join(roles, " "),
+					"%s (%s EST): Lab%s -> %s", strings.Join(serverRoles[channel.ServerID], " "),
 					addTimeOffset(time.Now(), 0, 0, MINUTES_FORMAT),
 					lab,
 					boss,
@@ -536,32 +536,32 @@ func (mp *MessageParser) rolesGeneratorRates(rateType string) ServerRoleMap {
 	}
 
 	for _, allRateIds := range allIds {
-		roleMap[allRateIds.ServerID] = append(roleMap[allRateIds.ServerID], fmt.Sprintf("<@&%s>", allRateIds))
+		roleMap[allRateIds.ServerID] = append(roleMap[allRateIds.ServerID], fmt.Sprintf("<@&%s>", allRateIds.RoleID))
 	}
 
 	if rate >= 10 {
 		for _, tenXRateIds := range tenXIds {
-			roleMap[tenXRateIds.ServerID] = append(roleMap[tenXRateIds.ServerID], fmt.Sprintf("<@&%s>", tenXRateIds))
+			roleMap[tenXRateIds.ServerID] = append(roleMap[tenXRateIds.ServerID], fmt.Sprintf("<@&%s>", tenXRateIds.RoleID))
 		}
 	}
 
 	return roleMap
 }
 
-func (mp *MessageParser) roleGenerator(event string) []string {
+func (mp *MessageParser) roleGenerator(event string) ServerRoleMap {
 
 	var (
-		roles []string
+		roleMap ServerRoleMap = make(map[string][]string)
 	)
 
 	switch event {
 	case "labBoss":
-		for _, roleId := range constants.LAB_BOSS_ROLE_IDS {
-			roles = append(roles, fmt.Sprintf("<@&%s>", roleId))
+		for _, role := range constants.LAB_BOSS_ROLE_IDS {
+			roleMap[role.ServerID] = append(roleMap[role.ServerID], fmt.Sprintf("<@&%s>", roleMap[role.RoleID]))
 		}
 	}
 
-	return roles
+	return roleMap
 }
 
 func (mp *MessageParser) isAdminUser() bool {
