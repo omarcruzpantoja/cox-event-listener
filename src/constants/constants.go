@@ -36,6 +36,7 @@ var (
 	ASSIGN_ROLE_MESSAGE_IDS = []string{
 		"1415116596392890368", // P&O Server Rates
 		"1415141373392453702", // P&O Server Lab Boss Spawn
+		"1419148638071947405", // Specific Lab Boss Spawn
 	}
 
 	// This is used to identify which channels to listen events. This is for your
