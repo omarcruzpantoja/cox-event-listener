@@ -40,12 +40,11 @@ var (
 	metSocRateRegex         = regexp.MustCompile(`x\d+ meteor soc rate`)
 
 	// WAR MATCHERS
-	dcWarDominanceRegex = regexp.MustCompile("(.*) won DC Battle for Dominance")
-	cityWarWinRegex     = regexp.MustCompile("(.*) won (AC|PC|BI) City War")
+	cityWarWinRegex = regexp.MustCompile("(.*) won (AC|PC|BI|DC) City War")
 
 	// LAB BOSS WATCHES
 	labBossSpawnRegex = regexp.MustCompile("(Howler|Gibbon|Talon|NagaLord) lab boss has been spawned random.")
-	labBossKillRegex  = regexp.MustCompile("(Howler|Gibbon|Talon|NagaLord) lab boss has been killed by .*")
+	labBossKillRegex  = regexp.MustCompile("(Howler|Gibbon|Talon|NagaLord) lab boss has been killed by (.*)")
 
 	// TEXT VARS
 	cwMessageStart = `-
@@ -106,7 +105,7 @@ func (mp *MessageParser) Handle() {
 			mp.dbSocRateHandler()
 		} else if metSocRateRegex.MatchString(mp.m.Content) {
 			mp.metSocRateHandler()
-		} else if cityWarWinRegex.MatchString(mp.m.Content) || dcWarDominanceRegex.MatchString(mp.m.Content) {
+		} else if cityWarWinRegex.MatchString(mp.m.Content) {
 			mp.cityWarHandler()
 		} else if labBossSpawnRegex.MatchString(mp.m.Content) {
 			mp.labBossHandler(false)
@@ -367,6 +366,7 @@ func (mp *MessageParser) metSocRateHandler() {
 func (mp *MessageParser) labBossHandler(killed bool) {
 	var (
 		boss        string
+		killer      string
 		groups      []string
 		message     string
 		lab         string
@@ -374,6 +374,7 @@ func (mp *MessageParser) labBossHandler(killed bool) {
 	)
 
 	serverRoles = mp.roleGenerator("labBoss", nil)
+	killer = ""
 
 	for _, lbID := range constants.LAB_BOSS_CHANNEL_AND_MESSAGE_ID {
 		labMessage, err := mp.s.ChannelMessage(lbID.ChannelID, lbID.MessageID)
@@ -382,6 +383,9 @@ func (mp *MessageParser) labBossHandler(killed bool) {
 		if killed {
 			groups = labBossKillRegex.FindStringSubmatch(mp.m.Content)
 			boss = groups[1]
+			if len(groups) > 2 {
+				killer = groups[2]
+			}
 		} else {
 			groups = labBossSpawnRegex.FindStringSubmatch(mp.m.Content)
 			boss = groups[1]
@@ -389,13 +393,14 @@ func (mp *MessageParser) labBossHandler(killed bool) {
 
 		if killed {
 			message = fmt.Sprintf(
-				"DEAD respawns in: (%s-%s EST) ",
-				addTimeOffset(time.Now(), 5, 0, MINUTES_FORMAT),
-				addTimeOffset(time.Now(), 8, 0, MINUTES_FORMAT),
+				"DEAD respawns in: ((%s)-(%s)) KILLER: %s",
+				discordTimestamp(time.Now(), 5, 0),
+				discordTimestamp(time.Now(), 8, 0),
+				killer,
 			)
 		} else {
 			message = fmt.Sprintf(
-				"SPAWNED (%s EST)", addTimeOffset(time.Now(), 0, 0, MINUTES_FORMAT),
+				"SPAWNED (%s)", discordTimestamp(time.Now(), 0, 0),
 			)
 		}
 
@@ -434,8 +439,8 @@ func (mp *MessageParser) labBossHandler(killed bool) {
 			_, err := mp.s.ChannelMessageSend(
 				channel.ChannelID,
 				fmt.Sprintf(
-					"%s (%s EST): Lab%s -> %s", strings.Join(serverRoles[channel.ServerID], " "),
-					addTimeOffset(time.Now(), 0, 0, MINUTES_FORMAT),
+					"SPAWN %s (%s): Lab%s -> %s", strings.Join(serverRoles[channel.ServerID], " "),
+					discordTimestamp(time.Now(), 0, 0),
 					lab,
 					boss,
 				),
@@ -444,6 +449,27 @@ func (mp *MessageParser) labBossHandler(killed bool) {
 			if err != nil {
 				log.Printf(
 					"Error sending message (labBossHandler Message) to channel (%s). err: %s\n", channel.ChannelID, err,
+				)
+			}
+		}
+	} else {
+		// If killed, also send who killed it
+		for _, channel := range constants.RELAY_MESSAGE_CHANNEL_IDS {
+
+			_, err := mp.s.ChannelMessageSend(
+				channel.ChannelID,
+				fmt.Sprintf(
+					"DEAD (%s): Lab%s -> %s killed by %s",
+					discordTimestamp(time.Now(), 0, 0),
+					lab,
+					boss,
+					killer,
+				),
+			)
+
+			if err != nil {
+				log.Printf(
+					"Error sending message (labBossHandler Message -kill) to channel (%s). err: %s\n", channel.ChannelID, err,
 				)
 			}
 		}
@@ -461,14 +487,9 @@ func (mp *MessageParser) cityWarHandler() {
 		cwMessage, err := mp.s.ChannelMessage(cwID.ChannelID, cwID.MessageID)
 		lines := strings.Split(cwMessage.Content, "\n")
 
-		if groups = cityWarWinRegex.FindStringSubmatch(mp.m.Content); len(groups) > 1 {
-			owner = groups[1]
-			city = groups[2]
-		} else {
-			groups = dcWarDominanceRegex.FindStringSubmatch(mp.m.Content)
-			owner = groups[1]
-			city = "DC"
-		}
+		groups = cityWarWinRegex.FindStringSubmatch(mp.m.Content)
+		owner = groups[1]
+		city = groups[2]
 
 		if err != nil {
 			log.Printf(
@@ -478,7 +499,7 @@ func (mp *MessageParser) cityWarHandler() {
 			continue
 		}
 
-		lines[1] = fmt.Sprintf("**CW Results**\t(%s UTC)", addTimeOffset(time.Now().UTC(), 0, 0, HOURS_FORMAT))
+		lines[1] = fmt.Sprintf("**CW Results**\t(%s)", discordTimestamp(time.Now().UTC(), 0, 0))
 
 		switch city {
 		case "PC":
@@ -491,7 +512,7 @@ func (mp *MessageParser) cityWarHandler() {
 			lines[5] = fmt.Sprintf("BI:\t%s", owner)
 		}
 
-		lines[7] = fmt.Sprintf("**Next City War**: %s UTC", addTimeOffset(time.Now().UTC(), 4, 10, HOURS_FORMAT))
+		lines[7] = fmt.Sprintf("**Next City War**: %s", discordTimestamp(time.Now().UTC(), 4, 10))
 
 		_, err = mp.s.ChannelMessageEdit(cwID.ChannelID, cwID.MessageID, strings.Join(lines, "\n"))
 
@@ -614,4 +635,12 @@ func addTimeOffset(t time.Time, hours int, minutes int, format string) string {
 
 	// Convert to EST/EDT and format
 	return newTime.In(loc).Format(format)
+}
+
+func discordTimestamp(t time.Time, hours, minutes int) string {
+	newTime := t.
+		Add(time.Duration(hours) * time.Hour).
+		Add(time.Duration(minutes) * time.Minute)
+
+	return fmt.Sprintf("<t:%d:t>", newTime.Unix())
 }
