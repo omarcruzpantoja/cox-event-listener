@@ -393,7 +393,7 @@ func (mp *MessageParser) labBossHandler(killed bool) {
 
 		if killed {
 			message = fmt.Sprintf(
-				"DEAD respawns in: (%s)-(%s) KILLER: %s",
+				"DEAD respawns in: (%s-%s) KILLER: %s",
 				discordTimestamp(time.Now(), 5, 0),
 				discordTimestamp(time.Now(), 8, 0),
 				killer,
@@ -512,7 +512,7 @@ func (mp *MessageParser) cityWarHandler() {
 			lines[5] = fmt.Sprintf("BI:\t%s", owner)
 		}
 
-		lines[7] = fmt.Sprintf("**Next City War**: %s", discordTimestamp(time.Now().UTC(), 4, 10))
+		lines[7] = fmt.Sprintf("**Next City War**: %s", discordTimestamp(roundToHour(time.Now().UTC()), 4, 10))
 
 		_, err = mp.s.ChannelMessageEdit(cwID.ChannelID, cwID.MessageID, strings.Join(lines, "\n"))
 
@@ -643,4 +643,8 @@ func discordTimestamp(t time.Time, hours, minutes int) string {
 		Add(time.Duration(minutes) * time.Minute)
 
 	return fmt.Sprintf("<t:%d:t>", newTime.Unix())
+}
+
+func roundToHour(t time.Time) time.Time {
+	return t.Truncate(time.Hour)
 }
