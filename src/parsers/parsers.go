@@ -393,7 +393,7 @@ func (mp *MessageParser) labBossHandler(killed bool) {
 
 		if killed {
 			message = fmt.Sprintf(
-				"DEAD respawns in: ((%s)-(%s)) KILLER: %s",
+				"DEAD respawns in: (%s)-(%s) KILLER: %s",
 				discordTimestamp(time.Now(), 5, 0),
 				discordTimestamp(time.Now(), 8, 0),
 				killer,
