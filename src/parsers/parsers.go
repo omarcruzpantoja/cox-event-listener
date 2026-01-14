@@ -46,6 +46,9 @@ var (
 	labBossSpawnRegex = regexp.MustCompile("(Howler|Gibbon|Talon|NagaLord) lab boss has been spawned random.")
 	labBossKillRegex  = regexp.MustCompile("(Howler|Gibbon|Talon|NagaLord) lab boss has been killed by (.*)")
 
+	// EVENTS MATCHERS
+	phoenixEggEvent = regexp.MustCompile("PhoenixEgg event has started.")
+
 	// TEXT VARS
 	cwMessageStart = `-
 **CW Results**
@@ -111,6 +114,8 @@ func (mp *MessageParser) Handle() {
 			mp.labBossHandler(false)
 		} else if labBossKillRegex.MatchString((mp.m.Content)) {
 			mp.labBossHandler(true)
+		} else if phoenixEggEvent.MatchString(mp.m.Content) {
+			mp.eventHandler("phoenixEgg")
 		}
 	}
 
@@ -306,8 +311,7 @@ func (mp *MessageParser) dropRateHandler() {
 	for _, channel := range constants.RELAY_MESSAGE_CHANNEL_IDS {
 
 		_, err := mp.s.ChannelMessageSend(
-			channel.ChannelID,
-			fmt.Sprintf("%s %s", strings.Join(roles[channel.ServerID], " "), mp.m.Content),
+			channel.ChannelID, fmt.Sprintf("%s %s", strings.Join(roles[channel.ServerID], " "), mp.m.Content),
 		)
 
 		if err != nil {
@@ -525,6 +529,22 @@ func (mp *MessageParser) cityWarHandler() {
 	}
 }
 
+func (mp *MessageParser) eventHandler(event string) {
+	// Currently no handler for this event
+	roles := mp.roleGenerator(event, nil)
+
+	for _, channel := range constants.RELAY_MESSAGE_CHANNEL_IDS {
+
+		_, err := mp.s.ChannelMessageSend(
+			channel.ChannelID, fmt.Sprintf("%s %s", strings.Join(roles[channel.ServerID], " "), mp.m.Content),
+		)
+
+		if err != nil {
+			log.Printf("Error sending message (%s Message) to channel (%s). err: %s\n", event, channel.ChannelID, err)
+		}
+	}
+}
+
 // ----- HELPERS -----
 func (mp *MessageParser) rolesGeneratorRates(rateType string) ServerRoleMap {
 
@@ -603,6 +623,10 @@ func (mp *MessageParser) roleGenerator(event string, role *ServerRoleMap) Server
 		}
 	case "howler":
 		for _, role := range constants.LAB_BOSS_HOWLER_ROLE {
+			roleMap[role.ServerID] = append(roleMap[role.ServerID], fmt.Sprintf("<@&%s>", role.RoleID))
+		}
+	case "phoenixEgg":
+		for _, role := range constants.PHOENIX_EGG_EVENT_ROLE_IDS {
 			roleMap[role.ServerID] = append(roleMap[role.ServerID], fmt.Sprintf("<@&%s>", role.RoleID))
 		}
 	}

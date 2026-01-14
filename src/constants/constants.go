@@ -41,6 +41,7 @@ var (
 		"1459981084526776607", // BlackHollow Server Rates
 		"1459979919504183461", // BlackHollow Server Lab Boss Spawn
 		"1459979979210362901", // BlackHollow Specific Lab Boss Spawn
+		"1460844321367523463", // BlackHollow Phoenix Egg Event
 	}
 
 	// This is used to identify which channels to listen events. This is for your
@@ -135,5 +136,9 @@ var (
 
 	LAB_BOSS_CHANNEL_AND_MESSAGE_ID = []LabBosIDs{
 		{ChannelID: "1409693429482393710", MessageID: "1415121652672630836"}, // P&O Channel/Message
+	}
+
+	PHOENIX_EGG_EVENT_ROLE_IDS = []RoleIDs{
+		{ServerID: BLACK_HOLLOW_SERVER_ID, RoleID: "1460843028011942019"}, // BLACK HOLLOW server
 	}
 )
